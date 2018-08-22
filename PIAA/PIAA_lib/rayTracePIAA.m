@@ -46,7 +46,18 @@ function [RAYS,PIAA] = rayTracePIAA(PIAA,Nrays,showPlot)
     zpLens1      = gradient(zLens1)./gradient(xLens1);
     zpLens2      = gradient(zLens2)./gradient(xLens2);
 
-    x0s = linspace(-1,1,Nrays);% Ray launch points in transverse direction
+    zpLens1(zpLens1==Inf) = 0;
+    zpLens2(zpLens2==Inf) = 0;
+    zpLens1(isnan(zpLens1)) = 0;
+    zpLens2(isnan(zpLens2)) = 0;
+    
+    if(PIAA.lens1.r(1) == 0)
+        x0s = linspace(-1,1,Nrays);% Ray launch points in transverse direction
+    else
+        x0s = [linspace(-1,-1*PIAA.lens1.r(3),floor(Nrays/2)) 0 linspace(PIAA.lens1.r(3),1,floor(Nrays/2)) ];% Ray launch points in transverse direction
+    end
+    x0s
+
     zIntLens1 = interp1(xLens1,zLens1,x0s);% z-position where ray intersects lens 1
     zpIntLens1 = interp1(xLens1,zpLens1,x0s);% the slope of the lens where ray intersects lens 1
     alpha = atan(1./zpIntLens1);% Surface angle (radians)
@@ -86,10 +97,12 @@ function [RAYS,PIAA] = rayTracePIAA(PIAA,Nrays,showPlot)
         % Get the ray from lens 1 to lens 2
         zRayTmp = linspace(zIntLens1(rayNum),zRayFinish,1000);
         ray1to2 = raySlopes(rayNum)*(zRayTmp-zIntLens1(rayNum)) + x0s(rayNum);
-
+        %plot(zRayTmp,ray1to2)
+        
         % Find the intersection between the ray and lens 2
         [zIntLens2,xIntLens2] = intersections(zRayTmp,ray1to2,zLens2,xLens2,false);
-
+        %if(isempty(xIntLens2));zIntLens2 = zLens2(1);xIntLens2 = xLens2(1)*sign(x0s(rayNum));end
+        
         % Get the slope of lens 2 at the intersection
         zpIntLens2 = interp1(xLens2,zpLens2,xIntLens2);% the slope of the lens where ray intersects lens 2
         
@@ -135,14 +148,14 @@ function [RAYS,PIAA] = rayTracePIAA(PIAA,Nrays,showPlot)
         end
         
     end
-    
+    xAxisLimit = 1.5*max([a1 a2]);
     % Finish off the plot 
     if(showPlot)
         hold off;
         xlabel('z/a');
         ylabel('x/a');
         axis equal
-        axis([zRayLaunch zRayFinish -1.5 1.5])
+        axis([zRayLaunch zRayFinish -xAxisLimit xAxisLimit])
     end
 
 end

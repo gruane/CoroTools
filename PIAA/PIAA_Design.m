@@ -4,51 +4,71 @@
 
 clear; close all;
 addpath(genpath('PIAA_lib'));
+addpath(genpath('export_scripts'));
 
-L = 5;% Distance between the PIAA lenses
+L = 10;% Distance between the PIAA lenses
 lambda = 2.2;% Wavlength (microns)
-Npts = 10001;% Number of rays 
+Npts = 10001;% Number of rays for design 
+Npts_resamp = 20001;% Number of rays for final resampling  
 material = 'CaF2';
 
-label = ['PIAAsag_',material,'_L',num2str(L),'_lam',num2str(lambda),'_Npts',num2str(Npts)];
+label = ['PIAAsag_',material,'_L',num2str(L),'_lam',num2str(lambda)];
 
 %% Get material properties
 
 n1 = getRefractiveIndex(material,lambda);
 n2 = getRefractiveIndex(material,lambda);
 
+
 %% Get remapping function
 
-a1 = 1; % Radius of the input lens 
-a2 = 1; % Radius of the output lens
+% Annulus to gaussian remapping function
+Rin1 = 0.236; 
+Rout1 = 1; 
+Rin2 = 0.1; 
+Rout2 = 1; 
+w = 1/sqrt(2);
 
-% Gaussian remapping function
-sigma = 0.7; % Standard deviation of the Gaussian
-[r1,r2] = gaussianRemappingPIAA(a1,a2,sigma,Npts);
+[r1,r2] = annulus2truncGaussianRemappingPIAA(Rin1,Rout1,Rin2,Rout2,w,Npts);
+
 
 %% Make the PIAA sag profiles 
 
 PIAA = makePIAAlenses(r1,r2,n1,n2,L);
 
-% Resample to a single coordinate system for simplicity 
-rvals = PIAA.lens1.r;
-PIAA.lens2.z = interp1(PIAA.lens2.r,PIAA.lens2.z,rvals,'linear','extrap');
+%% Fit asphere equation 
 
-%% Plot the sag profiles 
+polyOrders = 16; % Number of asphere polynomial terms (a_4*R^4 + a_6*R^6 + ...)
+rvals = linspace(0, 1, Npts_resamp);% r values to evaluate fit 
+[sagFitlens1,sagFitlens2,PIAA] = fitAsphere(PIAA,polyOrders,rvals);
 
-sag1 = PIAA.lens1.z;
-sag2 = PIAA.lens2.z - L;
+spherRef1 = asphereEqn(PIAA.lens1.asphFitParams(1:3),rvals);
+spherRef2 = asphereEqn(PIAA.lens2.asphFitParams(1:3),rvals);
+
+%% Plot the sag profiles and fits 
+
+% plotPIAAdesign;
 
 figure;
-plot(rvals,sag1);hold on;
-plot(rvals,sag2,'--');hold off;
+plot(PIAA.lens1.r,PIAA.lens1.z,'LineWidth',2); hold on;
+plot(PIAA.lens2.r,PIAA.lens2.z - L,'--','LineWidth',2);
+plot(rvals,sagFitlens1);
+plot(rvals,sagFitlens2);
+plot(rvals,spherRef1,':');
+plot(rvals,spherRef2,':');
+hold off;
 xlabel('r / a');
 ylabel('Sag / a');
 legend('Lens 1','Lens 2');
+axis([0 1 min([sagFitlens1 sagFitlens2]) max([sagFitlens1 sagFitlens2])]);
 
 %% Save sag profiles to a file 
 
-M = [rvals',PIAA.lens1.z',(PIAA.lens2.z-L)'];
-T = array2table(M,'VariableNames',{'r','z1','z2'});
+% Resample to a single coordinate system for simplicity 
+sag1 = interp1(PIAA.lens1.r,PIAA.lens1.z,rvals,'linear','extrap');
+sag2 = interp1(PIAA.lens2.r,PIAA.lens2.z - L,rvals,'linear','extrap');
+
+M = [rvals',sag1',sag2',sagFitlens1',sagFitlens2'];
+T = array2table(M,'VariableNames',{'r','sag1','sag2','asphFit1','asphFit2'});
 
 writetable(T,[label,'.csv']);
