@@ -37,7 +37,7 @@ function [RAYS,PIAA] = rayTracePIAA(PIAA,Nrays,showPlot)
     
     % Define launch and termination position along z axis for rays 
     zRayLaunch = -L;
-    zRayFinish = 2*L;
+    zRayFinish = 3*L;
     
     % Lens thickness for plot
     lensThickness = 0.05*L;
@@ -56,7 +56,6 @@ function [RAYS,PIAA] = rayTracePIAA(PIAA,Nrays,showPlot)
     else
         x0s = [linspace(-1,-1*PIAA.lens1.r(3),floor(Nrays/2)) 0 linspace(PIAA.lens1.r(3),1,floor(Nrays/2)) ];% Ray launch points in transverse direction
     end
-    x0s
 
     zIntLens1 = interp1(xLens1,zLens1,x0s);% z-position where ray intersects lens 1
     zpIntLens1 = interp1(xLens1,zpLens1,x0s);% the slope of the lens where ray intersects lens 1
